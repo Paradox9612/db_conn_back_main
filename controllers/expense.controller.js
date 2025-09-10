@@ -1,5 +1,12 @@
 const { Expense, Journey } = require('../models');
-const path = require('path');
+const mongoose = require('mongoose');
+const Grid = require('gridfs-stream');
+
+let gfs;
+mongoose.connection.once('open', () => {
+  gfs = Grid(mongoose.connection.db, mongoose.mongo);
+  gfs.collection('receipts');
+});
 
 const createExpense = async (req, res) => {
   try {
@@ -21,7 +28,8 @@ const createExpense = async (req, res) => {
     // Handle uploaded file
     let receiptUrl = null;
     if (req.file) {
-      receiptUrl = path.join('uploads/receipts', req.file.filename);
+      // Store reference to GridFS filename
+      receiptUrl = `/api/expenses/receipt/${req.file.filename}`;
     }
 
     const expense = await Expense.create({
@@ -46,7 +54,7 @@ const updateExpense = async (req, res) => {
   try {
     const updateData = { ...req.body };
     if (req.file) {
-      updateData.receiptUrl = path.join('uploads/receipts', req.file.filename);
+      updateData.receiptUrl = `/api/expenses/receipt/${req.file.filename}`;
     }
 
     const expense = await Expense.findOneAndUpdate(
@@ -59,6 +67,21 @@ const updateExpense = async (req, res) => {
     res.json({ success: true, expense });
   } catch (err) {
     console.error('Update Expense Error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Serve receipt from GridFS
+const getReceiptFile = async (req, res) => {
+  try {
+    const file = await gfs.files.findOne({ filename: req.params.filename });
+    if (!file) return res.status(404).json({ message: 'File not found' });
+
+    const readstream = gfs.createReadStream(file.filename);
+    res.set('Content-Type', file.contentType || 'application/octet-stream');
+    return readstream.pipe(res);
+  } catch (err) {
+    console.error('Get Receipt File Error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -94,5 +117,6 @@ module.exports = {
       console.error('Delete Expense Error:', err);
       res.status(500).json({ message: 'Server error' });
     }
-  }
+  },
+  getReceiptFile
 };
