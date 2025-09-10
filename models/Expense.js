@@ -1,11 +1,11 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-const ExpenseSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  journey: { type: mongoose.Schema.Types.ObjectId, ref: "Journey" },
+const expenseSchema = new mongoose.Schema({
+  journeyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Journey', required: true },
+  type: String,
   amount: { type: Number, required: true },
-  category: { type: String, required: true },
-  status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+  billUrl: String,
+  status: { type: String, enum: ['approved', 'rejected', 'pending'], default: 'pending' }
 }, { timestamps: true });
 
-module.exports = mongoose.model("Expense", ExpenseSchema);
+module.exports = mongoose.model('Expense', expenseSchema);

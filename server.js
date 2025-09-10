@@ -7,6 +7,7 @@ const connectDB = require('./config/db');
 const app = express();
 
 // ---------------- Middleware ----------------
+app.use(require('./routes/health'));
 app.use(cors());
 app.use(express.json()); // parse JSON bodies
 app.use(express.urlencoded({ extended: true }));
@@ -15,12 +16,13 @@ app.use('/uploads', express.static('uploads')); // serve uploaded files
 // ---------------- Connect to MongoDB ----------------
 connectDB();
 
-// ---------------- Register models (optional) ----------------
+// ---------------- Register models ----------------
 require('./models'); // assuming index.js exports all models
 const superadminRoutes = require('./routes/superadmin.routes');
 app.use('/api/superadmin', superadminRoutes);
 
 // ---------------- Routes ----------------
+app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/auth', require('./routes/auth.routes')); // auth routes (login/register)
 app.use('/api/superadmin', require('./routes/admin.routes')); // superadmin routes (invite users/admins)
 app.use('/api/admin', require('./routes/admin.routes')); // admin routes (reuse same controller)
