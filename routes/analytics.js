@@ -1,6 +1,10 @@
+// routes/analytics.js
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middelewares/auth');
+
+// adjust path if your middleware file lives elsewhere (middelewares/auth.js)
+const { authMiddleware, adminMiddleware, roleMiddleware } = require('../middelewares/auth');
+
 const {
   getUserDashboard,
   getAdminDashboard,
@@ -8,14 +12,16 @@ const {
   getMonthlyAnalytics
 } = require('../controllers/analytics.controller');
 
-// User dashboard
+// User dashboard - authenticated users
 router.get('/user', authMiddleware, getUserDashboard);
 
-// Admin dashboard
-router.get('/admin', authMiddleware, getAdminDashboard);
+// Admin dashboard - admin only
+router.get('/admin', authMiddleware, adminMiddleware, getAdminDashboard);
 
-// Reports
-router.get('/weekly', authMiddleware, getWeeklyAnalytics);
-router.get('/monthly', authMiddleware, getMonthlyAnalytics);
+// Weekly analytics - admin only (7-day window, chart-friendly output)
+router.get('/weekly', authMiddleware, adminMiddleware, getWeeklyAnalytics);
+
+// Monthly analytics - admin only (year-to-date months)
+router.get('/monthly', authMiddleware, adminMiddleware, getMonthlyAnalytics);
 
 module.exports = router;
