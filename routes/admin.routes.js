@@ -1,40 +1,37 @@
 // routes/admin.js
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-
-// Use your auth middleware which exports authMiddleware and adminMiddleware
-const { authMiddleware, adminMiddleware } = require('../middelewares/auth');
+const { authMiddleware } = require("../middelewares/auth");
+const roleMiddleware = require("../middelewares/role");
 
 const {
+  inviteUser,
+  getInvites,
+  deleteInvite,
   getAdminOverview,
   getPendingApprovals,
   approveSingle,
   rejectSingle,
   bulkApproveByVariance,
-  inviteUser,
-  getInvites,
-  deleteInvite
-} = require('../controllers/admin.controller');
+} = require("../controllers/admin.controller");
 
-// Protect all admin routes
-router.use(authMiddleware, adminMiddleware);
+// Protect all routes: only admin & superadmin
+router.use(authMiddleware, roleMiddleware(["admin", "superadmin"]));
 
-// Admin overview (cards)
-router.get('/overview', getAdminOverview);
+// =============== INVITE MANAGEMENT ===============
+router.post("/invite", inviteUser);
+router.get("/invites", getInvites);
+router.delete("/invite/:token", deleteInvite);
 
-// Pending approvals (expenses)
-router.get('/pending-approvals', getPendingApprovals);
+// =============== ADMIN DASHBOARD ===============
+router.get("/overview", getAdminOverview);
 
-// Bulk approval by variance (keep before single approve route)
-router.post('/approve/bulk', bulkApproveByVariance);
+// =============== APPROVAL WORKFLOW ===============
+router.get("/pending-approvals", getPendingApprovals);
+router.post("/approve/:type/:id", approveSingle);
+router.post("/reject/:type/:id", rejectSingle);
 
-// Single approve / reject (expense or journey)
-router.post('/approve/:type/:id', approveSingle);
-router.post('/reject/:type/:id', rejectSingle);
-
-// Invite management
-router.post('/invite', inviteUser);
-router.get('/invites', getInvites);
-router.delete('/invite/:token', deleteInvite);
+// Bulk approval by variance rule
+router.post("/approve/bulk", bulkApproveByVariance);
 
 module.exports = router;

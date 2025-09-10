@@ -1,0 +1,198 @@
+{
+  "info": {
+    "name": "Travel Management Backend",
+    "_postman_id": "9f6e22f1-1234-4567-89ab-abcdef123456",
+    "description": "API collection for Travel & Expense Management system (Node.js + MongoDB Atlas). Includes Auth, Journeys, Expenses, Analytics, Admin Dashboard, and Invite management.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"123456\",\n  \"role\": \"user\"\n}"
+            },
+            "url": { "raw": "http://localhost:5000/api/auth/register" }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": { "raw": "http://localhost:5000/api/auth/login" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Journeys",
+      "item": [
+        {
+          "name": "Start Journey",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "http://localhost:5000/api/journeys/start" }
+          }
+        },
+        {
+          "name": "End Journey",
+          "request": {
+            "method": "PUT",
+            "url": { "raw": "http://localhost:5000/api/journeys/:id/end" }
+          }
+        },
+        {
+          "name": "Today Journeys",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/journeys/today" }
+          }
+        },
+        {
+          "name": "Journey History",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/journeys/history" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Expenses",
+      "item": [
+        {
+          "name": "Create Expense",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "http://localhost:5000/api/expenses" }
+          }
+        },
+        {
+          "name": "List Expenses",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/expenses" }
+          }
+        },
+        {
+          "name": "Update Expense",
+          "request": {
+            "method": "PUT",
+            "url": { "raw": "http://localhost:5000/api/expenses/:id" }
+          }
+        },
+        {
+          "name": "Delete Expense",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "http://localhost:5000/api/expenses/:id" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "User Dashboard",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/analytics/user-dashboard" }
+          }
+        },
+        {
+          "name": "Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/analytics/admin-dashboard" }
+          }
+        },
+        {
+          "name": "Weekly Analytics",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/analytics/weekly" }
+          }
+        },
+        {
+          "name": "Monthly Analytics",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/analytics/monthly" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Overview",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/admin/overview" }
+          }
+        },
+        {
+          "name": "Get Invites",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/admin/invites" }
+          }
+        },
+        {
+          "name": "Invite User",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "http://localhost:5000/api/admin/invite" }
+          }
+        },
+        {
+          "name": "Delete Invite",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "http://localhost:5000/api/admin/invite/:token" }
+          }
+        },
+        {
+          "name": "Pending Approvals",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/admin/pending-approvals" }
+          }
+        },
+        {
+          "name": "Approve Single",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "http://localhost:5000/api/admin/approve/:type/:id" }
+          }
+        },
+        {
+          "name": "Reject Single",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "http://localhost:5000/api/admin/reject/:type/:id" }
+          }
+        },
+        {
+          "name": "Bulk Approve by Variance",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "http://localhost:5000/api/admin/approve/bulk" }
+          }
+        }
+      ]
+    }
+  ]
+}
