@@ -1,12 +1,14 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const UserSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  balance: { type: Number, default: 0 },
-  resetPasswordToken: { type: String },
-  resetPasswordExpires: { type: Date }
-}, { timestamps: true });
+  email: { type: String, unique: true, required: true },
+  password: { type: String, required: true }, // hashed temp or final
+  name: { type: String },
+  token: { type: String }, 
+  tokenCreatedAt: { type: Date },
+  isRegistered: { type: Boolean, default: false },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'SuperAdmin' },
+  createdAt: { type: Date, default: Date.now }
+});
 
-module.exports = mongoose.model("User", UserSchema);
+module.exports = mongoose.model('User', UserSchema);

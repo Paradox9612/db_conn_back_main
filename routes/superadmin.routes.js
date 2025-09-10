@@ -4,8 +4,8 @@ const { inviteUser, getInvites, deleteInvite } = require('../controllers/admin.c
 
 const router = express.Router();
 
-// Admin routes to manage invites
-router.post('/invite', authMiddleware, adminMiddleware, inviteUser);
+// Only superadmins/admins can invite users
+router.post('/create-member', authMiddleware, adminMiddleware, inviteUser);
 router.get('/invites', authMiddleware, adminMiddleware, getInvites);
 router.delete('/invite/:token', authMiddleware, adminMiddleware, deleteInvite);
 

@@ -1,7 +1,6 @@
-// controllers/admin.controller.js
 const crypto = require('crypto');
-const { InviteToken } = require('../models');
-
+const bcrypt = require('bcryptjs');
+const InviteToken = require('../models/InviteToken');
 const inviteUser = async (req, res) => {
   try {
     const { email, role } = req.body;
@@ -9,17 +8,34 @@ const inviteUser = async (req, res) => {
 
     // Prevent duplicate invite if already exists & unused
     const existing = await InviteToken.findOne({ email, used: false });
-    if (existing) {
-      return res.status(400).json({ message: 'There is already an active invite for this email' });
-    }
+    if (existing) return res.status(400).json({ message: 'Active invite exists for this email' });
 
     const token = crypto.randomBytes(20).toString('hex');
+    const tempPassword = crypto.randomBytes(4).toString('hex'); // 8 chars
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
-    const invite = await InviteToken.create({ email, role, token, expiresAt });
-    return res.status(201).json({ success: true, message: 'Invite created', invite });
+    const invite = await InviteToken.create({
+      email,
+      role,
+      token,
+      password: hashedPassword,
+      expiresAt
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Invite created',
+      invite: {
+        email,
+        role,
+        token,
+        tempPassword,
+        expiresAt
+      }
+    });
   } catch (err) {
-    console.error('Invite Error:', err);
+    console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -27,7 +43,7 @@ const inviteUser = async (req, res) => {
 const getInvites = async (req, res) => {
   try {
     const invites = await InviteToken.find().sort({ createdAt: -1 });
-    res.status(200).json({ success: true, invites });
+    res.json({ success: true, invites });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -38,7 +54,7 @@ const deleteInvite = async (req, res) => {
   try {
     const { token } = req.params;
     await InviteToken.findOneAndDelete({ token });
-    res.status(200).json({ success: true, message: 'Invite deleted' });
+    res.json({ success: true, message: 'Invite deleted' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
