@@ -1,122 +1,153 @@
-const { Expense, Journey } = require('../models');
-const mongoose = require('mongoose');
-const Grid = require('gridfs-stream');
+const Expense = require("../models/Expense");
+const Journey = require("../models/Journey");
+const cloudinary = require("cloudinary").v2;
+const upload = require("../utils/Upload");
+const { expectedFromDistance } = require("../utils/allowance");
 
-let gfs;
-mongoose.connection.once('open', () => {
-  gfs = Grid(mongoose.connection.db, mongoose.mongo);
-  gfs.collection('receipts');
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const createExpense = async (req, res) => {
+// ================== CREATE ==================
+const uploadExpenseReceipt = async (req, res) => {
   try {
-    const user = req.user;
-    if (!user) return res.status(401).json({ message: 'Unauthorized' });
+    upload.single("receipt")(req, res, async function (err) {
+      if (err) return res.status(500).json({ message: err.message });
 
-    const { amount, description, expenseType = 'Miscellaneous', journeyId } = req.body;
-    if (amount == null) return res.status(400).json({ message: 'amount is required' });
+      const { journeyId, type, description, amount, date } = req.body;
 
-    // Validate journey ownership
-    if (journeyId) {
+      if (!journeyId) return res.status(400).json({ message: "journeyId required" });
+
       const journey = await Journey.findById(journeyId);
-      if (!journey) return res.status(400).json({ message: 'Journey not found' });
-      if (String(journey.user) !== String(user._id) && req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Journey does not belong to user' });
+      if (!journey) return res.status(404).json({ message: "Journey not found" });
+      if (!journey.user.equals(req.user._id)) return res.status(403).json({ message: "Not allowed" });
+
+      // Calculate expected amount from journey distance if not set
+      if (!journey.expectedAmount) {
+        journey.expectedAmount = expectedFromDistance(journey.distance);
       }
-    }
 
-    // Handle uploaded file
-    let receiptUrl = null;
-    if (req.file) {
-      // Store reference to GridFS filename
-      receiptUrl = `/api/expenses/receipt/${req.file.filename}`;
-    }
+      let receiptUrl = null;
+      if (req.file) {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: "receipts",
+        });
+        receiptUrl = result.secure_url;
+      }
 
-    const expense = await Expense.create({
-      user: user._id,
-      journey: journeyId || null,
-      amount,
-      description,
-      expenseType,
-      receiptUrl,
-      status: 'submitted',
+      const newExpense = new Expense({
+        journey: journeyId,
+        user: req.user._id,
+        type,
+        description,
+        amount: Number(amount) || 0,
+        date: date ? new Date(date) : new Date(),
+        receiptUrl,
+      });
+
+      await newExpense.save();
+
+      journey.expenses.push(newExpense._id);
+      journey.totalCost = (journey.totalCost || 0) + newExpense.amount;
+
+      // Update variance (totalCost vs expectedAmount)
+      journey.variance = journey.totalCost - journey.expectedAmount;
+
+      await journey.save();
+
+      res.status(201).json(newExpense);
     });
-
-    return res.status(201).json({ success: true, expense });
   } catch (err) {
-    console.error('Create Expense Error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Upload expense error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-// Update expense to allow updating receipt
+// ================== READ ==================
+const getExpense = async (req, res) => {
+  try {
+    const expenses = await Expense.find({ user: req.user._id }).populate("journey");
+    res.json(expenses);
+  } catch (err) {
+    console.error("Get expense error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// ================== UPDATE ==================
 const updateExpense = async (req, res) => {
   try {
-    const updateData = { ...req.body };
-    if (req.file) {
-      updateData.receiptUrl = `/api/expenses/receipt/${req.file.filename}`;
-    }
+    upload.single("receipt")(req, res, async function (err) {
+      if (err) return res.status(500).json({ message: err.message });
 
-    const expense = await Expense.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id },
-      updateData,
-      { new: true }
-    );
+      const { id } = req.params;
+      const { type, description, amount, date } = req.body;
 
-    if (!expense) return res.status(404).json({ message: 'Expense not found' });
-    res.json({ success: true, expense });
+      const expense = await Expense.findById(id).populate("journey");
+      if (!expense) return res.status(404).json({ message: "Expense not found" });
+      if (!expense.user.equals(req.user._id)) return res.status(403).json({ message: "Not allowed" });
+
+      if (req.file) {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: "receipts",
+        });
+        expense.receiptUrl = result.secure_url;
+      }
+
+      if (amount && Number(amount) !== expense.amount) {
+        expense.journey.totalCost = (expense.journey.totalCost || 0) - expense.amount + Number(amount);
+        expense.amount = Number(amount);
+        // Update variance after amount change
+        expense.journey.variance = expense.journey.totalCost - (expense.journey.expectedAmount || 0);
+        await expense.journey.save();
+      }
+
+      if (type) expense.type = type;
+      if (description) expense.description = description;
+      if (date) expense.date = new Date(date);
+
+      await expense.save();
+
+      res.json(expense);
+    });
   } catch (err) {
-    console.error('Update Expense Error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Update expense error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-// Serve receipt from GridFS
-const getReceiptFile = async (req, res) => {
+// ================== DELETE ==================
+const deleteExpense = async (req, res) => {
   try {
-    const file = await gfs.files.findOne({ filename: req.params.filename });
-    if (!file) return res.status(404).json({ message: 'File not found' });
+    const { id } = req.params;
 
-    const readstream = gfs.createReadStream(file.filename);
-    res.set('Content-Type', file.contentType || 'application/octet-stream');
-    return readstream.pipe(res);
+    const expense = await Expense.findById(id).populate("journey");
+    if (!expense) return res.status(404).json({ message: "Expense not found" });
+    if (!expense.user.equals(req.user._id)) return res.status(403).json({ message: "Not allowed" });
+
+    expense.journey.totalCost = (expense.journey.totalCost || 0) - expense.amount;
+    expense.journey.expenses = expense.journey.expenses.filter(
+      (expId) => !expId.equals(expense._id)
+    );
+    // Update variance after deletion
+    expense.journey.variance = expense.journey.totalCost - (expense.journey.expectedAmount || 0);
+    await expense.journey.save();
+
+    await expense.deleteOne();
+
+    res.json({ message: "Expense deleted successfully" });
   } catch (err) {
-    console.error('Get Receipt File Error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Delete expense error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
 module.exports = {
-  createExpense,
-  listExpenses: async (req, res) => {
-    try {
-      const expenses = await Expense.find({ user: req.user._id }).sort({ createdAt: -1 });
-      res.json({ success: true, expenses });
-    } catch (err) {
-      console.error('List Expenses Error:', err);
-      res.status(500).json({ message: 'Server error' });
-    }
-  },
-  getExpenseById: async (req, res) => {
-    try {
-      const expense = await Expense.findOne({ _id: req.params.id, user: req.user._id });
-      if (!expense) return res.status(404).json({ message: 'Expense not found' });
-      res.json({ success: true, expense });
-    } catch (err) {
-      console.error('Get Expense Error:', err);
-      res.status(500).json({ message: 'Server error' });
-    }
-  },
+  uploadExpenseReceipt,
+  getExpense,
   updateExpense,
-  deleteExpense: async (req, res) => {
-    try {
-      const expense = await Expense.findOneAndDelete({ _id: req.params.id, user: req.user._id });
-      if (!expense) return res.status(404).json({ message: 'Expense not found' });
-      res.json({ success: true, message: 'Expense deleted' });
-    } catch (err) {
-      console.error('Delete Expense Error:', err);
-      res.status(500).json({ message: 'Server error' });
-    }
-  },
-  getReceiptFile
+  deleteExpense,
 };
